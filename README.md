@@ -6,10 +6,13 @@ A Ruby Gem for interacting with [Gemini](https://deepmind.google/technologies/ge
 
 > _This Gem is designed to provide low-level access to Gemini, enabling people to build abstractions on top of it. If you are interested in more high-level abstractions or more user-friendly tools, you may want to consider [Nano Bots](https://github.com/icebaker/ruby-nano-bots) 💎 🤖._
 
+## Ruby 2.7.1 Support
+This fork of the gem has been updated to support Ruby 2.7.1, the original version that required at least Ruby 3.1.0.
+
 ## TL;DR and Quick Start
 
 ```ruby
-gem 'gemini-ai', '~> 3.2.0'
+gem 'gemini-ai', git: 'https://github.com/obi-a/gemini-ai'
 ```
 
 ```ruby
@@ -202,7 +205,7 @@ Similar to [Option 2](#option-2-service-account-credentials-file-vertex-ai-api),
 For local development, you can generate your default credentials using the [gcloud CLI](https://cloud.google.com/sdk/gcloud) as follows:
 
 ```sh
-gcloud auth application-default login 
+gcloud auth application-default login
 ```
 
 For more details about alternative methods and different environments, check the official documentation:

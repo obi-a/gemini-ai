@@ -10,6 +10,6 @@ module Gemini
     github: 'https://github.com/gbaptista/gemini-ai',
     gem_server: 'https://rubygems.org',
     license: 'MIT',
-    ruby: '3.1.0'
+    ruby: '2.7.1'
   }.freeze
 end

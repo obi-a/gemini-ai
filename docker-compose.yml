@@ -1,0 +1,8 @@
+version: '3'
+services:
+  gemini-ai:
+    build: .
+    volumes:
+      - .:/myapp
+    environment:
+      GOOGLE_API_KEY:
