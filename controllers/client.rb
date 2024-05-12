@@ -69,11 +69,11 @@ module Gemini
       end
 
       def stream_generate_content(payload, server_sent_events: nil, &callback)
-        request('streamGenerateContent', payload, server_sent_events:, &callback)
+        request('streamGenerateContent', payload, server_sent_events: nil, &callback)
       end
 
       def generate_content(payload, server_sent_events: nil, &callback)
-        result = request('generateContent', payload, server_sent_events:, &callback)
+        result = request('generateContent', payload, server_sent_events: nil, &callback)
 
         return result.first if result.is_a?(Array) && result.size == 1
 
@@ -129,8 +129,8 @@ module Gemini
                 if parsed_json
                   result = {
                     event: parsed_json,
-                    parsed: { type:, data:, id:, reconnection_time: },
-                    raw: { chunk:, bytes:, env: }
+                    parsed: { type: type, data: data, id: id, reconnection_time: reconnection_time},
+                    raw: { chunk: chunk, bytes: bytes, env: bytes}
                   }
 
                   callback.call(result[:event], result[:parsed], result[:raw]) unless callback.nil?
@@ -154,7 +154,7 @@ module Gemini
 
         results.map { |result| result[:event] }
       rescue Faraday::ServerError => e
-        raise Errors::RequestError.new(e.message, request: e, payload:)
+        raise Errors::RequestError.new(e.message, request: e, payload: payload)
       end
 
       def safe_parse_json(raw)
