@@ -21,16 +21,24 @@ module Gemini
         @service = config[:credentials][:service]
 
         unless %w[vertex-ai-api generative-language-api].include?(@service)
-          raise Errors::UnsupportedServiceError, "Unsupported service: #{@service}"
+          raise Errors::UnsupportedServiceError, "Unsupported service: '#{@service}'."
         end
+
+        avoid_conflicting_credentials!(config[:credentials])
 
         if config[:credentials][:api_key]
           @authentication = :api_key
           @api_key = config[:credentials][:api_key]
-        elsif config[:credentials][:file_path]
+        elsif config[:credentials][:file_path] || config[:credentials][:file_contents]
           @authentication = :service_account
+          json_key_io = if config[:credentials][:file_path]
+                          File.open(config[:credentials][:file_path])
+                        else
+                          StringIO.new(config[:credentials][:file_contents])
+                        end
+
           @authorizer = ::Google::Auth::ServiceAccountCredentials.make_creds(
-            json_key_io: File.open(config[:credentials][:file_path]),
+            json_key_io:,
             scope: 'https://www.googleapis.com/auth/cloud-platform'
           )
         else
@@ -46,12 +54,23 @@ module Gemini
 
         @service_version = config.dig(:credentials, :version) || DEFAULT_SERVICE_VERSION
 
-        @address = case @service
-                   when 'vertex-ai-api'
-                     "https://#{config[:credentials][:region]}-aiplatform.googleapis.com/#{@service_version}/projects/#{@project_id}/locations/#{config[:credentials][:region]}/publishers/google/models/#{config[:options][:model]}"
-                   when 'generative-language-api'
-                     "https://generativelanguage.googleapis.com/#{@service_version}/models/#{config[:options][:model]}"
-                   end
+        @base_address = case @service
+                        when 'vertex-ai-api'
+                          if config[:credentials][:region] == 'global'
+                            "https://aiplatform.googleapis.com/#{@service_version}/projects/#{@project_id}/locations/#{config[:credentials][:region]}"
+                          else
+                            "https://#{config[:credentials][:region]}-aiplatform.googleapis.com/#{@service_version}/projects/#{@project_id}/locations/#{config[:credentials][:region]}"
+                          end
+                        when 'generative-language-api'
+                          "https://generativelanguage.googleapis.com/#{@service_version}"
+                        end
+
+        @model_address = case @service
+                         when 'vertex-ai-api'
+                           "publishers/google/models/#{config[:options][:model]}"
+                         when 'generative-language-api'
+                           "models/#{config[:options][:model]}"
+                         end
 
         @server_sent_events = config.dig(:options, :server_sent_events)
 
@@ -60,12 +79,58 @@ module Gemini
         @faraday_adapter = config.dig(:options, :connection, :adapter) || DEFAULT_FARADAY_ADAPTER
 
         @request_options = if @request_options.is_a?(Hash)
-                             @request_options.select do |key, _|
-                               ALLOWED_REQUEST_OPTIONS.include?(key)
-                             end
+                             @request_options.slice(*ALLOWED_REQUEST_OPTIONS)
                            else
                              {}
                            end
+      end
+
+      def avoid_conflicting_credentials!(credentials)
+        conflicting_keys = %i[api_key file_path file_contents]
+
+        found = credentials.keys.filter { |key| conflicting_keys.include?(key) }
+
+        return unless found.size > 1
+
+        message = found.sort.each_with_index.map do |key, i|
+          i == found.size - 1 ? "or '#{key}'" : "'#{key}'"
+        end.join(', ')
+
+        raise Errors::ConflictingCredentialsError,
+              "You must choose either #{message}."
+      end
+
+      def predict(payload, server_sent_events: nil, &callback)
+        result = request(
+          "#{@model_address}:predict", payload,
+          server_sent_events:, &callback
+        )
+
+        return result.first if result.is_a?(Array) && result.size == 1
+
+        result
+      end
+
+      def count_tokens(payload, server_sent_events: nil, &callback)
+        result = request(
+          "#{@model_address}:countTokens", payload,
+          server_sent_events:, &callback
+        )
+
+        return result.first if result.is_a?(Array) && result.size == 1
+
+        result
+      end
+
+      def embed_content(payload, server_sent_events: nil, &callback)
+        result = request(
+          "#{@model_address}:embedContent", payload,
+          server_sent_events:, &callback
+        )
+
+        return result.first if result.is_a?(Array) && result.size == 1
+
+        result
       end
 
       def stream_generate_content(payload, server_sent_events: nil, &callback)
@@ -74,15 +139,36 @@ module Gemini
 
       def generate_content(payload, server_sent_events: nil, &callback)
         result = request('generateContent', payload, server_sent_events: nil, &callback)
+        request("#{@model_address}:streamGenerateContent", payload, server_sent_events:, &callback)
+      end
+
+      def models(_server_sent_events: nil, &callback)
+        result = request(
+          'models',
+          nil, server_sent_events: false, request_method: 'GET', &callback
+        )
 
         return result.first if result.is_a?(Array) && result.size == 1
 
         result
       end
 
-      def request(path, payload, server_sent_events: nil, &callback)
+      def generate_content(payload, server_sent_events: nil, &callback)
+        result = request(
+          "#{@model_address}:generateContent", payload,
+          server_sent_events:, &callback
+        )
+
+        return result.first if result.is_a?(Array) && result.size == 1
+
+        result
+      end
+
+      def request(path, payload, server_sent_events: nil, request_method: 'POST', &callback)
         server_sent_events_enabled = server_sent_events.nil? ? @server_sent_events : server_sent_events
-        url = "#{@address}:#{path}"
+
+        url = "#{@base_address}/#{path}"
+
         params = []
 
         params << 'alt=sse' if server_sent_events_enabled
@@ -97,20 +183,21 @@ module Gemini
 
         results = []
 
+        method_to_call = request_method.to_s.strip.downcase.to_sym
+
         response = Faraday.new(request: @request_options) do |faraday|
           faraday.adapter @faraday_adapter
           faraday.response :raise_error
-        end.post do |request|
+        end.send(method_to_call) do |request|
           request.url url
           request.headers['Content-Type'] = 'application/json'
           if @authentication == :service_account || @authentication == :default_credentials
             request.headers['Authorization'] = "Bearer #{@authorizer.fetch_access_token!['access_token']}"
           end
 
-          request.body = payload.to_json
+          request.body = payload.to_json unless payload.nil?
 
           if server_sent_events_enabled
-
             partial_json = ''
 
             parser = EventStreamParser::Parser.new

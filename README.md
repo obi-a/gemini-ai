@@ -12,7 +12,11 @@ This fork of the gem has been updated to support Ruby 2.7.1, the original versio
 ## TL;DR and Quick Start
 
 ```ruby
+<<<<<<< HEAD
 gem 'gemini-ai', git: 'https://github.com/obi-a/gemini-ai', branch: 'main'
+=======
+gem 'gemini-ai', '~> 4.3.0'
+>>>>>>> upstream/main
 ```
 
 ```ruby
@@ -37,6 +41,17 @@ client = Gemini.new(
   options: { model: 'gemini-pro', server_sent_events: true }
 )
 
+# With the Service Account Credentials File contents
+client = Gemini.new(
+  credentials: {
+    service: 'vertex-ai-api',
+    file_contents: File.read('google-credentials.json'),
+    # file_contents: ENV['GOOGLE_CREDENTIALS_FILE_CONTENTS'],
+    region: 'us-east4'
+  },
+  options: { model: 'gemini-pro', server_sent_events: true }
+)
+
 # With Application Default Credentials
 client = Gemini.new(
   credentials: {
@@ -49,6 +64,12 @@ client = Gemini.new(
 result = client.stream_generate_content({
   contents: { role: 'user', parts: { text: 'hi!' } }
 })
+```
+
+Google now supports a [global endpoint](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/locations#global-endpoint):
+
+```ruby
+Gemini.new(credentials: { region: 'global' })
 ```
 
 Result:
@@ -76,41 +97,53 @@ Result:
 - [TL;DR and Quick Start](#tldr-and-quick-start)
 - [Index](#index)
 - [Setup](#setup)
-    - [Installing](#installing)
-    - [Credentials](#credentials)
-        - [Option 1: API Key (Generative Language API)](#option-1-api-key-generative-language-api)
-        - [Option 2: Service Account Credentials File (Vertex AI API)](#option-2-service-account-credentials-file-vertex-ai-api)
-        - [Option 3: Application Default Credentials (Vertex AI API)](#option-3-application-default-credentials-vertex-ai-api)
-        - [Required Data](#required-data)
-    - [Custom Version](#custom-version)
+  - [Installing](#installing)
+  - [Credentials](#credentials)
+    - [Option 1: API Key (Generative Language API)](#option-1-api-key-generative-language-api)
+    - [Option 2: Service Account Credentials File (Vertex AI API)](#option-2-service-account-credentials-file-vertex-ai-api)
+    - [Option 3: Application Default Credentials (Vertex AI API)](#option-3-application-default-credentials-vertex-ai-api)
+    - [Required Data](#required-data)
+  - [Custom Version](#custom-version)
+  - [Global Endpoint](#global-endpoint)
+- [Available Models](#available-models)
 - [Usage](#usage)
-    - [Client](#client)
-    - [Methods](#methods)
-        - [stream_generate_content](#stream_generate_content)
-            - [Receiving Stream Events](#receiving-stream-events)
-            - [Without Events](#without-events)
-        - [generate_content](#generate_content)
-    - [Modes](#modes)
-        - [Text](#text)
-        - [Image](#image)
-        - [Video](#video)
-    - [Streaming vs. Server-Sent Events (SSE)](#streaming-vs-server-sent-events-sse)
-        - [Server-Sent Events (SSE) Hang](#server-sent-events-sse-hang)
-        - [Non-Streaming](#non-streaming)
-    - [Back-and-Forth Conversations](#back-and-forth-conversations)
-    - [Tools (Functions) Calling](#tools-functions-calling)
-    - [New Functionalities and APIs](#new-functionalities-and-apis)
-    - [Request Options](#request-options)
-        - [Adapter](#adapter)
-        - [Timeout](#timeout)
-    - [Error Handling](#error-handling)
-        - [Rescuing](#rescuing)
-        - [For Short](#for-short)
-        - [Errors](#errors)
+  - [Client](#client)
+  - [Methods](#methods)
+    - [Chat](#chat)
+      - [stream_generate_content](#stream_generate_content)
+        - [Receiving Stream Events](#receiving-stream-events)
+        - [Without Events](#without-events)
+      - [generate_content](#generate_content)
+    - [Embeddings](#embeddings)
+      - [predict](#predict)
+      - [embed_content](#embed_content)
+  - [Modes](#modes)
+    - [Text](#text)
+    - [Image](#image)
+    - [Video](#video)
+  - [Streaming vs. Server-Sent Events (SSE)](#streaming-vs-server-sent-events-sse)
+    - [Server-Sent Events (SSE) Hang](#server-sent-events-sse-hang)
+    - [Non-Streaming](#non-streaming)
+  - [Back-and-Forth Conversations](#back-and-forth-conversations)
+  - [Safety Settings](#safety-settings)
+  - [System Instructions](#system-instructions)
+  - [Counting Tokens](#counting-tokens)
+  - [JSON Format Responses](#json-format-responses)
+    - [JSON Schema](#json-schema)
+    - [Models That Support JSON](#models-that-support-json)
+  - [Tools (Functions) Calling](#tools-functions-calling)
+  - [New Functionalities and APIs](#new-functionalities-and-apis)
+  - [Request Options](#request-options)
+    - [Adapter](#adapter)
+    - [Timeout](#timeout)
+  - [Error Handling](#error-handling)
+    - [Rescuing](#rescuing)
+    - [For Short](#for-short)
+    - [Errors](#errors)
 - [Development](#development)
-    - [Purpose](#purpose)
-    - [Publish to RubyGems](#publish-to-rubygems)
-    - [Updating the README](#updating-the-readme)
+  - [Purpose](#purpose)
+  - [Publish to RubyGems](#publish-to-rubygems)
+  - [Updating the README](#updating-the-readme)
 - [Resources and References](#resources-and-references)
 - [Disclaimer](#disclaimer)
 
@@ -119,11 +152,11 @@ Result:
 ### Installing
 
 ```sh
-gem install gemini-ai -v 3.2.0
+gem install gemini-ai -v 4.3.0
 ```
 
 ```sh
-gem 'gemini-ai', '~> 3.2.0'
+gem 'gemini-ai', '~> 4.3.0'
 ```
 
 ### Credentials
@@ -243,6 +276,23 @@ Remember that hardcoding your API key in code is unsafe; it's preferable to use 
 }
 ```
 
+Alternatively, you can pass the file contents instead of the path:
+```ruby
+{
+  service: 'vertex-ai-api',
+  file_contents: File.read('google-credentials.json'),
+  region: 'us-east4'
+}
+```
+
+```ruby
+{
+  service: 'vertex-ai-api',
+  file_contents: ENV['GOOGLE_CREDENTIALS_FILE_CONTENTS'],
+  region: 'us-east4'
+}
+```
+
 **Option 3**: For _Application Default Credentials_, omit both the `api_key` and the `file_path`:
 
 ```ruby
@@ -301,6 +351,17 @@ client = Gemini.new(
   options: { model: 'gemini-pro', server_sent_events: true }
 )
 
+# With the Service Account Credentials File contents
+client = Gemini.new(
+  credentials: {
+    service: 'vertex-ai-api',
+    file_contents: File.read('google-credentials.json'),
+    # file_contents: ENV['GOOGLE_CREDENTIALS_FILE_CONTENTS'],
+    region: 'us-east4'
+  },
+  options: { model: 'gemini-pro', server_sent_events: true }
+)
+
 # With Application Default Credentials
 client = Gemini.new(
   credentials: {
@@ -311,6 +372,56 @@ client = Gemini.new(
   options: { model: 'gemini-pro', server_sent_events: true }
 )
 ```
+
+### Global Endpoint
+
+Google now supports a [global endpoint](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/locations#global-endpoint):
+
+```ruby
+Gemini.new(credentials: { region: 'global' })
+```
+
+## Available Models
+
+These models are accessible to the repository **author** as of June 2025 in the `us-east4` region. Access to models may vary by region, user, and account. All models here are expected to work, if you can access them. This is just a reference of what a "typical" user may expect to have access to right away:
+
+| Model                                    | Vertex AI | Generative Language |
+|------------------------------------------|:---------:|:-------------------:|
+| gemini-pro-vision                        |    ✅     |          🔒         |
+| gemini-pro                               |    ✅     |          ✅         |
+| gemini-1.5-pro-preview-0514              |    ✅     |          🔒         |
+| gemini-1.5-pro-preview-0409              |    ✅     |          🔒         |
+| gemini-1.5-pro                           |    ✅     |          ✅         |
+| gemini-1.5-flash-preview-0514            |    ✅     |          🔒         |
+| gemini-1.5-flash                         |    ✅     |          ✅         |
+| gemini-1.0-pro-vision-latest             |    🔒     |          🔒         |
+| gemini-1.0-pro-vision-001                |    ✅     |          🔒         |
+| gemini-1.0-pro-vision                    |    ✅     |          🔒         |
+| gemini-1.0-pro-latest                    |    🔒     |          ✅         |
+| gemini-1.0-pro-002                       |    ✅     |          🔒         |
+| gemini-1.0-pro-001                       |    ✅     |          ✅         |
+| gemini-1.0-pro                           |    ✅     |          ✅         |
+| gemini-ultra                             |    🔒     |          🔒         |
+| gemini-1.0-ultra                         |    🔒     |          🔒         |
+| gemini-1.0-ultra-001                     |    🔒     |          🔒         |
+| text-embedding-preview-0514              |    🔒     |          🔒         |
+| text-embedding-preview-0409              |    🔒     |          🔒         |
+| text-embedding-004                       |    ✅     |          ✅         |
+| embedding-001                            |    🔒     |          ✅         |
+| text-multilingual-embedding-002          |    ✅     |          🔒         |
+| textembedding-gecko-multilingual@001     |    ✅     |          🔒         |
+| textembedding-gecko-multilingual@latest  |    ✅     |          🔒         |
+| textembedding-gecko@001                  |    ✅     |          🔒         |
+| textembedding-gecko@002                  |    ✅     |          🔒         |
+| textembedding-gecko@003                  |    ✅     |          🔒         |
+| textembedding-gecko@latest               |    ✅     |          🔒         |
+
+You can follow new models at:
+
+- [Google models](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models)
+  - [Model versions and lifecycle](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versioning)
+
+This is [the code](https://gist.github.com/gbaptista/d7390901293bce81ee12ff4ec5fed62c) used for generating this table that you can use to explore your own access.
 
 ## Usage
 
@@ -340,6 +451,17 @@ client = Gemini.new(
   options: { model: 'gemini-pro', server_sent_events: true }
 )
 
+# With the Service Account Credentials File contents
+client = Gemini.new(
+  credentials: {
+    service: 'vertex-ai-api',
+    file_contents: File.read('google-credentials.json'),
+    # file_contents: ENV['GOOGLE_CREDENTIALS_FILE_CONTENTS'],
+    region: 'us-east4'
+  },
+  options: { model: 'gemini-pro', server_sent_events: true }
+)
+
 # With Application Default Credentials
 client = Gemini.new(
   credentials: {
@@ -352,9 +474,11 @@ client = Gemini.new(
 
 ### Methods
 
-#### stream_generate_content
+#### Chat
 
-##### Receiving Stream Events
+##### stream_generate_content
+
+###### Receiving Stream Events
 
 Ensure that you have enabled [Server-Sent Events](#streaming-vs-server-sent-events-sse) before using blocks for streaming:
 
@@ -386,7 +510,7 @@ Event:
   } }
 ```
 
-##### Without Events
+###### Without Events
 
 You can use `stream_generate_content` without events:
 
@@ -426,7 +550,7 @@ result = client.stream_generate_content(
 end
 ```
 
-#### generate_content
+##### generate_content
 
 ```ruby
 result = client.generate_content(
@@ -454,6 +578,58 @@ Result:
 ```
 
 As of the writing of this README, only the `generative-language-api` service supports the `generate_content` method; `vertex-ai-api` does not.
+
+#### Embeddings
+
+##### predict
+
+Vertex AI API generates embeddings through the `predict` method ([documentation](https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/get-text-embeddings)), and you need a client set up to use an embedding model (e.g. `text-embedding-004`):
+
+```ruby
+result = client.predict(
+  { instances: [{ content: 'What is life?' }],
+    parameters: { autoTruncate: true } }
+)
+```
+
+Result:
+```ruby
+{ 'predictions' =>
+  [{ 'embeddings' =>
+     { 'statistics' => { 'truncated' => false, 'token_count' => 4 },
+       'values' =>
+       [-0.006861076690256596,
+        0.00020840796059928834,
+        -0.028549950569868088,
+        # ...
+        0.0020092015620321035,
+        0.03279878571629524,
+        -0.014905261807143688] } }],
+  'metadata' => { 'billableCharacterCount' => 11 } }
+```
+
+##### embed_content
+
+Generative Language API generates embeddings through the `embed_content` method ([documentation](https://ai.google.dev/api/rest/v1/models/embedContent)), and you need a client set up to use an embedding model (e.g. `text-embedding-004`):
+
+```ruby
+result = client.embed_content(
+  { content: { parts: [{ text: 'What is life?' }] } }
+)
+```
+
+Result:
+```ruby
+{ 'embedding' =>
+  { 'values' =>
+    [-0.0065307906,
+     -0.0001632607,
+     -0.028370803,
+
+     0.0019950708,
+     0.032798845,
+     -0.014878989] } }
+```
 
 ### Modes
 
@@ -760,6 +936,229 @@ Result:
    } }]
 ```
 
+### Safety Settings
+
+You can [configure safety attributes](https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/configure-safety-attributes) for your requests.
+
+Harm Categories:
+> `HARM_CATEGORY_UNSPECIFIED`, `HARM_CATEGORY_HARASSMENT`, `HARM_CATEGORY_HATE_SPEECH`, `HARM_CATEGORY_SEXUALLY_EXPLICIT`, `HARM_CATEGORY_DANGEROUS_CONTENT`.
+
+Thresholds:
+> `BLOCK_NONE`, `BLOCK_ONLY_HIGH`, `BLOCK_MEDIUM_AND_ABOVE`, `BLOCK_LOW_AND_ABOVE`, `HARM_BLOCK_THRESHOLD_UNSPECIFIED`.
+
+Example:
+```ruby
+client.stream_generate_content(
+  {
+    contents: { role: 'user', parts: { text: 'hi!' } },
+    safetySettings: [
+      {
+        category: 'HARM_CATEGORY_UNSPECIFIED',
+        threshold: 'BLOCK_ONLY_HIGH'
+      },
+      {
+        category: 'HARM_CATEGORY_HARASSMENT',
+        threshold: 'BLOCK_ONLY_HIGH'
+      },
+      {
+        category: 'HARM_CATEGORY_HATE_SPEECH',
+        threshold: 'BLOCK_ONLY_HIGH'
+      },
+      {
+        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold: 'BLOCK_ONLY_HIGH'
+      },
+      {
+        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold: 'BLOCK_ONLY_HIGH'
+      }
+    ]
+  }
+)
+```
+
+Google started to block the usage of `BLOCK_NONE` unless:
+
+> _User has requested a restricted HarmBlockThreshold setting BLOCK_NONE. You can get access either (a) through an allowlist via your Google account team, or (b) by switching your account type to monthly invoiced billing via this instruction: https://cloud.google.com/billing/docs/how-to/invoiced-billing_
+
+### System Instructions
+
+Some models support [system instructions](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/prompts/system-instructions):
+
+```ruby
+client.stream_generate_content(
+  { contents: { role: 'user', parts: { text: 'Hi! Who are you?' } },
+    system_instruction: { role: 'user', parts: { text: 'Your name is Neko.' } } }
+)
+```
+
+Output:
+```text
+Hi! I'm  Neko, a factual language model from Google AI.
+```
+
+```ruby
+client.stream_generate_content(
+  { contents: { role: 'user', parts: { text: 'Hi! Who are you?' } },
+    system_instruction: {
+      role: 'user', parts: [
+        { text: 'You are a cat.' },
+        { text: 'Your name is Neko.' }
+      ]
+    } }
+)
+```
+
+Output:
+```text
+Meow! I'm Neko, a fluffy and playful cat. :3
+```
+
+### Counting Tokens
+
+You can [count tokens](https://ai.google.dev/gemini-api/docs/tokens#count-tokens) and preview how many tokens a request is expected to consume:
+
+```ruby
+client.count_tokens(
+  { contents: { role: 'user', parts: { text: 'hi!' } } }
+)
+```
+
+Output for Generative Language API:
+```ruby
+{ 'totalTokens' => 3 }
+```
+
+Output for Vertex AI API:
+
+```ruby
+{ 'totalTokens' => 2, 'totalBillableCharacters' => 3 }
+```
+
+### JSON Format Responses
+
+> _As of the writing of this README, only the `vertex-ai-api` service and `gemini` models version `1.5` support this feature._
+
+The Gemini API provides a configuration parameter to [request a response in JSON](https://ai.google.dev/gemini-api/docs/api-overview#json) format:
+
+```ruby
+require 'json'
+
+result = client.stream_generate_content(
+  {
+    contents: {
+      role: 'user',
+      parts: {
+        text: 'List 3 random colors.'
+      }
+    },
+    generation_config: {
+      response_mime_type: 'application/json'
+    }
+
+  }
+)
+
+json_string = result
+              .map { |response| response.dig('candidates', 0, 'content', 'parts') }
+              .map { |parts| parts.map { |part| part['text'] }.join }
+              .join
+
+puts JSON.parse(json_string).inspect
+```
+
+Output:
+```ruby
+{ 'colors' => ['Dark Salmon', 'Indigo', 'Lavender'] }
+```
+
+#### JSON Schema
+
+> _While Gemini 1.5 Flash models only accept a text description of the JSON schema you want returned, the Gemini 1.5 Pro models let you pass a schema object (or a Python type equivalent), and the model output will strictly follow that schema. This is also known as controlled generation or constrained decoding._
+
+You can also provide a [JSON Schema](https://json-schema.org) for the expected JSON output:
+
+```ruby
+require 'json'
+
+result = client.stream_generate_content(
+  {
+    contents: {
+      role: 'user',
+      parts: {
+        text: 'List 3 random colors.'
+      }
+    },
+    generation_config: {
+      response_mime_type: 'application/json',
+      response_schema: {
+        type: 'object',
+        properties: {
+          colors: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: {
+                  type: 'string'
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+)
+
+json_string = result
+              .map { |response| response.dig('candidates', 0, 'content', 'parts') }
+              .map { |parts| parts.map { |part| part['text'] }.join }
+              .join
+
+puts JSON.parse(json_string).inspect
+```
+
+Output:
+
+```ruby
+{ 'colors' => [
+  { 'name' => 'Lavender Blush' },
+  { 'name' => 'Medium Turquoise' },
+  { 'name' => 'Dark Slate Gray' }
+] }
+```
+
+#### Models That Support JSON
+
+These models are accessible to the repository **author** as of June 2025 in the `us-east4` region. Access to models may vary by region, user, and account.
+
+- ❌ Does not support JSON mode.
+- 🟡 Supports JSON mode but not Schema.
+- ✅ Supports JSON mode and Schema.
+- 🔒 I don't have access to the model.
+
+| Model                                    | Vertex AI | Generative Language |
+|------------------------------------------|:---------:|:-------------------:|
+| gemini-pro-vision                        |    ❌     |          🔒         |
+| gemini-pro                               |    🟡     |          ❌         |
+| gemini-1.5-pro-preview-0514              |    ✅     |          🔒         |
+| gemini-1.5-pro-preview-0409              |    ✅     |          🔒         |
+| gemini-1.5-pro                           |    ✅     |          ❌         |
+| gemini-1.5-flash-preview-0514            |    🟡     |          🔒         |
+| gemini-1.5-flash                         |    🟡     |          ❌         |
+| gemini-1.0-pro-vision-latest             |    🔒     |          🔒         |
+| gemini-1.0-pro-vision-001                |    ❌     |          🔒         |
+| gemini-1.0-pro-vision                    |    ❌     |          🔒         |
+| gemini-1.0-pro-latest                    |    🔒     |          ❌         |
+| gemini-1.0-pro-002                       |    🟡     |          🔒         |
+| gemini-1.0-pro-001                       |    ❌     |          ❌         |
+| gemini-1.0-pro                           |    🟡     |          ❌         |
+| gemini-ultra                             |    🔒     |          🔒         |
+| gemini-1.0-ultra                         |    🔒     |          🔒         |
+| gemini-1.0-ultra-001                     |    🔒     |          🔒         |
+
+
 ### Tools (Functions) Calling
 
 > As of the writing of this README, only the `vertex-ai-api` service and the `gemini-pro` model [supports](https://cloud.google.com/vertex-ai/docs/generative-ai/multimodal/function-calling#supported_models) tools (functions) calls.
@@ -907,12 +1306,25 @@ Which will result in:
 
 ### New Functionalities and APIs
 
-Google may launch a new endpoint that we haven't covered in the Gem yet. If that's the case, you may still be able to use it through the `request` method. For example, `stream_generate_content` is just a wrapper for `google/models/gemini-pro:streamGenerateContent`, which you can call directly like this:
+Google may launch a new endpoint that we haven't covered in the Gem yet. If that's the case, you may still be able to use it through the `request` method. For example, `stream_generate_content` is just a wrapper for `models/gemini-pro:streamGenerateContent` (Generative Language API) or `publishers/google/models/gemini-pro:streamGenerateContent` (Vertex AI API), which you can call directly like this:
 
 ```ruby
+# Generative Language API
 result = client.request(
-  'streamGenerateContent',
-  { contents: { role: 'user', parts: { text: 'hi!' } } }
+  'models/gemini-pro:streamGenerateContent',
+  { contents: { role: 'user', parts: { text: 'hi!' } } },
+  request_method: 'POST',
+  server_sent_events: true
+)
+```
+
+```ruby
+# Vertex AI API
+result = client.request(
+  'publishers/google/models/gemini-pro:streamGenerateContent',
+  { contents: { role: 'user', parts: { text: 'hi!' } } },
+  request_method: 'POST',
+  server_sent_events: true
 )
 ```
 
@@ -1017,6 +1429,7 @@ GeminiError
 
 MissingProjectIdError
 UnsupportedServiceError
+ConflictingCredentialsError
 BlockWithoutServerSentEventsError
 
 RequestError
@@ -1028,7 +1441,14 @@ RequestError
 bundle
 rubocop -A
 
-bundle exec ruby spec/tasks/run-client.rb
+rspec
+
+bundle exec ruby spec/tasks/run-available-models.rb
+bundle exec ruby spec/tasks/run-embed.rb
+bundle exec ruby spec/tasks/run-generate.rb
+bundle exec ruby spec/tasks/run-json.rb
+bundle exec ruby spec/tasks/run-safety.rb
+bundle exec ruby spec/tasks/run-system.rb
 ```
 
 ### Purpose
@@ -1042,7 +1462,7 @@ gem build gemini-ai.gemspec
 
 gem signin
 
-gem push gemini-ai-3.2.0.gem
+gem push gemini-ai-4.3.0.gem
 ```
 
 ### Updating the README
@@ -1086,6 +1506,11 @@ These resources and references may be useful throughout your learning process.
 - [Gemini API Documentation](https://cloud.google.com/vertex-ai/docs/generative-ai/model-reference/gemini)
 - [Vertex AI API Documentation](https://cloud.google.com/vertex-ai/docs/reference)
   - [REST Documentation](https://cloud.google.com/vertex-ai/docs/reference/rest)
+  - [Get text embeddings](https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/get-text-embeddings)
+  - [Use system instructions](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/prompts/system-instructions)
+  - [Configure safety attributes](https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/configure-safety-attributes)
+- [Google models](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models)
+  - [Model versions and lifecycle](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versioning)
 - [Google DeepMind Gemini](https://deepmind.google/technologies/gemini/)
 - [Stream responses from Generative AI models](https://cloud.google.com/vertex-ai/docs/generative-ai/learn/streaming)
 - [Function calling](https://cloud.google.com/vertex-ai/docs/generative-ai/multimodal/function-calling)
