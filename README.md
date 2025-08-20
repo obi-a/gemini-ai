@@ -12,11 +12,9 @@ This fork of the gem has been updated to support Ruby 2.7.1, the original versio
 ## TL;DR and Quick Start
 
 ```ruby
-<<<<<<< HEAD
+
 gem 'gemini-ai', git: 'https://github.com/obi-a/gemini-ai', branch: 'main'
-=======
-gem 'gemini-ai', '~> 4.3.0'
->>>>>>> upstream/main
+
 ```
 
 ```ruby
